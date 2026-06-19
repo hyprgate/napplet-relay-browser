@@ -1,4 +1,4 @@
-// napps/relay-browser/src/lib/relay-actions.ts
+// napplets/relay-browser/src/lib/relay-actions.ts
 // Action functions for relay operations — NIP-65, NIP-51, shell pool.
 // All write operations use relay.publish with merge-before-publish (Pitfall 4).
 

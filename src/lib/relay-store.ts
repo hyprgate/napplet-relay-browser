@@ -1,4 +1,4 @@
-// napps/relay-browser/src/lib/relay-store.ts
+// napplets/relay-browser/src/lib/relay-store.ts
 // NIP-66 relay discovery state — pure TypeScript, no Svelte runes.
 // Hand-parses NIP-66 tags (~50 LOC) per research decision (no @nostrwatch/route66).
 
