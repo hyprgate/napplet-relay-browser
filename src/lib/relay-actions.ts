@@ -9,7 +9,7 @@ import type { NostrEvent, NostrFilter } from '@hyprgate/types';
 function collectOnEose(filters: NostrFilter | NostrFilter[]): Promise<NostrEvent[]> {
   return new Promise((resolve) => {
     const events: NostrEvent[] = [];
-    const sub = relay.subscribe(filters, (ev) => events.push(ev), () => { sub.close(); resolve(events); });
+    const sub = relay.subscribe(filters, (result) => events.push(result.event as NostrEvent), () => { sub.close(); resolve(events); });
   });
 }
 

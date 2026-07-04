@@ -99,7 +99,8 @@
     // Also subscribe for live NIP-66 events (new relays discovered after initial load)
     sub = relay.subscribe(
       { kinds: [30166], limit: RELAY_DISCOVERY_LIMIT },
-      (event) => {
+      (result) => {
+        const event = result.event as NostrEvent;
         const r = parseRelayDiscoveryEvent(event);
         if (r) { relayStore.addRelay(r); notifyUpdate(); }
       },
