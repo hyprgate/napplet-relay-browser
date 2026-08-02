@@ -2,7 +2,7 @@
 // Action functions for relay operations — NIP-65, NIP-51, shell pool.
 // All write operations use relay.publish with merge-before-publish (Pitfall 4).
 
-import { relay, inc as ipc } from '@napplet/sdk';
+import { relay, inc } from '@napplet/sdk';
 import type { NostrEvent, NostrFilter } from '@hyprgate/types';
 
 /** Subscribe, collect events, resolve on EOSE. */
@@ -15,13 +15,10 @@ function collectOnEose(filters: NostrFilter | NostrFilter[]): Promise<NostrEvent
 
 /**
  * Add relay to shell's shared pool (RELAY-03).
- * Uses shell:relay-add ipc channel — shell-admin-channels.ts (plan 09-03) handles it.
+ * Uses the shell:relay-add INC topic handled by shell-admin-channels.ts.
  */
 export function addToPool(relayUrl: string): void {
-  ipc.emit('shell:relay-add', [
-    ['tier', 'discovery'],
-    ['url', relayUrl],
-  ]);
+  inc.emit('shell:relay-add', { tier: 'discovery', url: relayUrl });
 }
 
 /**
@@ -95,12 +92,12 @@ export async function addToNamedList(
 
 /**
  * Open a feed window filtered to a specific relay.
- * Posts create-window command to shell parent via ipc.
+ * Requests a window through the shell:create-window INC topic.
  */
 export function openRelayFeed(relayUrl: string, nappUrl: string): void {
-  ipc.emit('shell:create-window', [], JSON.stringify({
+  inc.emit('shell:create-window', {
     title: `Feed: ${relayUrl}`,
     class: 'feed',
     iframeSrc: nappUrl,
-  }));
+  });
 }
