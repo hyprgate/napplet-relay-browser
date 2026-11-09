@@ -3,6 +3,7 @@
 // All write operations use relay.publish with merge-before-publish (Pitfall 4).
 
 import { relay, inc } from '@napplet/sdk';
+import { createFeedIntentRequest, createProfileIntentRequest, invokeNappletIntent } from '@hyprgate/utils';
 import type { NostrEvent, NostrFilter } from '@hyprgate/types';
 
 /** Subscribe, collect events, resolve on EOSE. */
@@ -90,14 +91,71 @@ export async function addToNamedList(
   });
 }
 
-/**
- * Open a feed window filtered to a specific relay.
- * Requests a window through the shell:create-window INC topic.
- */
-export function openRelayFeed(relayUrl: string, nappUrl: string): void {
-  inc.emit('shell:create-window', {
-    title: `Feed: ${relayUrl}`,
-    class: 'feed',
-    iframeSrc: nappUrl,
-  });
+/** Open the feed pinned to one relay, through the same intent saved feeds use. */
+export async function openRelayFeed(relayUrl: string, title: string): Promise<void> {
+  const request = createFeedIntentRequest({
+    filters: [{ kinds: [1] }],
+    origin: 'relay',
+    relays: [relayUrl],
+    title,
+  }, { behavior: { focus: true } });
+  if (!request) throw new Error('Could not open a feed for this relay');
+  const result = await invokeNappletIntent(request);
+  if (!result.ok) throw new Error(result.error ?? 'No feed app is available');
+}
+
+export async function openOperatorProfile(pubkey: string): Promise<void> {
+  const request = createProfileIntentRequest({ pubkey }, { behavior: { focus: true, reuse: true } });
+  if (request) await invokeNappletIntent(request);
+}
+
+export type RelayAction =
+  | 'add-to-pool'
+  | 'relay-list-read'
+  | 'relay-list-write'
+  | 'relay-list-both'
+  | 'feed'
+  | 'block';
+
+export interface ActionOutcome {
+  ok: boolean;
+  message: string;
+}
+
+/** Every action ends in a message: these publish lists, so silence reads as success. */
+export async function runRelayAction(
+  action: RelayAction,
+  relayUrl: string,
+  name: string,
+  getPubkey: () => Promise<string | null>,
+): Promise<ActionOutcome> {
+  try {
+    if (action === 'add-to-pool') {
+      addToPool(relayUrl);
+      return { ok: true, message: `Asked Hyprgate to use ${name} for discovery.` };
+    }
+    if (action === 'feed') {
+      await openRelayFeed(relayUrl, name);
+      return { ok: true, message: `Opened a feed from ${name}.` };
+    }
+    const pubkey = await getPubkey();
+    if (!pubkey) return { ok: false, message: 'Sign in to change your relay lists.' };
+    if (action === 'block') {
+      await blockRelay(relayUrl, pubkey);
+      return { ok: true, message: `Blocked ${name}.` };
+    }
+    const marker = action === 'relay-list-read' ? 'read' : action === 'relay-list-write' ? 'write' : 'both';
+    await addToRelayList(relayUrl, marker, pubkey);
+    return { ok: true, message: `Added ${name} to your relay list.` };
+  } catch (cause) {
+    return { ok: false, message: describeFailure(cause) };
+  }
+}
+
+export function describeFailure(cause: unknown): string {
+  const detail = cause instanceof Error ? cause.message : '';
+  if (/read-?only/i.test(detail)) {
+    return 'This account is read-only. Sign in with a browser extension or remote signer to change your relay lists.';
+  }
+  return detail ? `That didn't go through: ${detail}` : "That didn't go through.";
 }

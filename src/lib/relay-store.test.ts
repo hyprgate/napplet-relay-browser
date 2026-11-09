@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { parseRelayDiscoveryEvent, relayStore } from './relay-store.js';
+import { parseRelayDiscoveryEvent, relayAccess, relayMatches, relayName, relayNetworkLabel, relayOperator, relaySpeed, relayStore } from './relay-store.js';
 import type { NostrEvent } from '@hyprgate/types';
 
 function makeEvent(overrides: Partial<NostrEvent> = {}): NostrEvent {
@@ -202,5 +202,41 @@ describe('relayStore', () => {
     const hasRttIdx = list.findIndex(r => r.url === 'wss://has-rtt.com');
     const noRttIdx = list.findIndex(r => r.url === 'wss://no-rtt.com');
     expect(hasRttIdx).toBeLessThan(noRttIdx);
+  });
+});
+
+describe('relay presentation', () => {
+  const parsed = (content: string, tags: string[][] = []) =>
+    parseRelayDiscoveryEvent(makeEvent({ content, tags: [['d', 'wss://relay.example.com/'], ...tags] }))!;
+
+  it('names a relay from its NIP-11 content, then from its address', () => {
+    expect(relayName(parsed(JSON.stringify({ name: 'Harbour' })))).toBe('Harbour');
+    expect(relayName(parsed(''))).toBe('relay.example.com');
+    expect(relayName(parsed('[1,2]'))).toBe('relay.example.com');
+  });
+
+  it('filters on name, description, URL and t tags', () => {
+    const relay = parsed(JSON.stringify({ name: 'Harbour', description: 'Field recordings' }), [['t', 'music']]);
+    for (const query of ['harb', 'RECORDINGS', 'example.com', 'music', '  ']) expect(relayMatches(relay, query)).toBe(true);
+    expect(relayMatches(relay, 'nothing')).toBe(false);
+  });
+
+  it('describes speed in words and access from R tags', () => {
+    expect(relaySpeed(84).label).toBe('Fast');
+    expect(relaySpeed(311).label).toBe('OK');
+    expect(relaySpeed(920).label).toBe('Slow');
+    expect(relaySpeed(null).label).toBe('Not measured');
+    expect(relayAccess(parsed(''))).toBe('Open');
+    expect(relayAccess(parsed('', [['R', 'auth'], ['R', 'payment']]))).toBe('Sign-in, Paid');
+  });
+
+  it('labels only non-clearnet networks', () => {
+    expect(relayNetworkLabel(parsed('', [['n', 'clearnet']]))).toBeNull();
+    expect(relayNetworkLabel(parsed('', [['n', 'tor']]))).toBe('Tor');
+  });
+
+  it('accepts an operator only when it is a real pubkey', () => {
+    expect(relayOperator(parsed(JSON.stringify({ pubkey: 'A'.repeat(64) })))).toBe('a'.repeat(64));
+    expect(relayOperator(parsed(JSON.stringify({ pubkey: 'admin@example.com' })))).toBeNull();
   });
 });

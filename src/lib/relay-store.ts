@@ -41,7 +41,10 @@ export function parseRelayDiscoveryEvent(event: NostrEvent): RelayDiscovery | nu
   const rTagValues = getAllTags('R');
 
   let nip11: Record<string, unknown> | null = null;
-  try { nip11 = event.content ? JSON.parse(event.content) : null; } catch { /* ignore */ }
+  try {
+    const parsed: unknown = event.content ? JSON.parse(event.content) : null;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) nip11 = parsed as Record<string, unknown>;
+  } catch { /* ignore */ }
 
   return {
     url,
@@ -61,6 +64,62 @@ export function parseRelayDiscoveryEvent(event: NostrEvent): RelayDiscovery | nu
   };
 }
 
+function nip11Text(relay: RelayDiscovery, key: string): string | null {
+  const value = relay.nip11?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+/** What the relay calls itself, falling back to its address without the scheme. */
+export function relayName(relay: RelayDiscovery): string {
+  return nip11Text(relay, 'name') ?? relay.url.replace(/^wss?:\/\//, '').replace(/\/$/, '');
+}
+
+export function relayDescription(relay: RelayDiscovery): string | null {
+  return nip11Text(relay, 'description');
+}
+
+/** Operator pubkey, only when the self-reported value is really a key. */
+export function relayOperator(relay: RelayDiscovery): string | null {
+  const pubkey = nip11Text(relay, 'pubkey');
+  return pubkey && /^[0-9a-f]{64}$/i.test(pubkey) ? pubkey.toLowerCase() : null;
+}
+
+export function relayMatches(relay: RelayDiscovery, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return [relay.url, relayName(relay), relayDescription(relay) ?? '', ...relay.topics]
+    .some((value) => value.toLowerCase().includes(needle));
+}
+
+export interface RelaySpeed {
+  label: string;
+  tone: 'fast' | 'ok' | 'slow' | 'unknown';
+}
+
+/** Words as well as colour, so speed never depends on telling red from green. */
+export function relaySpeed(rtt: number | null): RelaySpeed {
+  if (rtt === null) return { label: 'Not measured', tone: 'unknown' };
+  if (rtt < 200) return { label: 'Fast', tone: 'fast' };
+  if (rtt < 500) return { label: 'OK', tone: 'ok' };
+  return { label: 'Slow', tone: 'slow' };
+}
+
+export function relayAccess(relay: RelayDiscovery): string {
+  const needs = [
+    relay.requiresAuth ? 'Sign-in' : null,
+    relay.requiresPayment ? 'Paid' : null,
+    relay.requiresPow ? 'Proof of work' : null,
+  ].filter(Boolean);
+  return needs.length > 0 ? needs.join(', ') : 'Open';
+}
+
+const NETWORK_LABELS: Record<string, string> = { tor: 'Tor', i2p: 'I2P', loki: 'Lokinet', hyper: 'Hyper' };
+
+/** Clearnet is the assumed case, so only other networks get a label. */
+export function relayNetworkLabel(relay: RelayDiscovery): string | null {
+  return NETWORK_LABELS[relay.networkType] ?? (relay.networkType === 'clearnet' ? null : relay.networkType);
+}
+
 const relays = new Map<string, RelayDiscovery>();
 let loading = true;
 let sortField: SortField = 'url';
@@ -70,7 +129,7 @@ function sortRelays(items: RelayDiscovery[]): RelayDiscovery[] {
   return [...items].sort((a, b) => {
     const dir = sortDirection === 'asc' ? 1 : -1;
     switch (sortField) {
-      case 'url': return dir * a.url.localeCompare(b.url);
+      case 'url': return dir * (relayName(a).localeCompare(relayName(b)) || a.url.localeCompare(b.url));
       case 'rttOpen': {
         if (a.rttOpen === null && b.rttOpen === null) return 0;
         if (a.rttOpen === null) return 1;

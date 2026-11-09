@@ -4,46 +4,30 @@
 > Do not push commits to this standalone napplet repository; direct changes are overwritten by Hyprgate's mirror workflow.
 <!-- HYPRGATE NAPPLET MIRROR NOTICE:END -->
 
-# napplet-relay-browser
+# Relay Browser
 
-[![CI](https://github.com/hyprgate/napplet-relay-browser/actions/workflows/ci.yml/badge.svg)](https://github.com/hyprgate/napplet-relay-browser/actions/workflows/ci.yml)
+Explore NIP-66 relay monitor data (kind 30166) and add relays to your lists. The app
+is tracked in this repo at `napplets/relay-browser`; the standalone
+`hyprgate/napplet-relay-browser` repository is a generated, read-only mirror.
 
-Forkable source repository for the Hyprgate built-in napplet currently packaged as `@hyprgate/napp-relay-browser`.
+Each row shows what the relay calls itself (from the NIP-11 JSON in the event
+content), with speed and access in words. A row expands to the full detail,
+including the operator's profile when the relay names one.
 
-This repository was split from `hyprgate/gui` and is mounted back into the parent checkout as `napplets/relay-browser`.
-It still expects the parent workspace when built through Hyprgate because shared `@hyprgate/*` packages remain workspace dependencies.
+- Lists are read and merged before publishing: kind 10002 for the relay list, 10006
+  for blocked relays and 30002 for relay sets.
+- Opening a feed goes through the shared feed intent, pinned to that relay.
+- Actions always end in a visible result. Read-only sessions can browse, and see the
+  reason when a publish is refused.
 
-## Parent checkout
-
-```bash
-git clone --recurse-submodules git@github.com:hyprgate/gui.git
-cd gui
-pnpm install --frozen-lockfile
-pnpm --filter @hyprgate/napp-relay-browser build
-```
-
-## Paja runtime
-
-```bash
-pnpm --filter @hyprgate/napp-relay-browser paja
-```
-
-This starts Kehto Paja and the napplet's Vite dev server together, using
-the port configured in `vite.config.ts`.
-
-## Testing
-
-Run these checks from a Hyprgate parent checkout so workspace dependencies resolve:
+The sandbox is `allow-scripts` only, so this app can't use `prompt()` or
+`<form onsubmit>`. Neither ever fires there.
 
 ```bash
-git clone --recurse-submodules git@github.com:hyprgate/gui.git
-cd gui
-pnpm install --frozen-lockfile
-pnpm --filter @hyprgate/napp-relay-browser conformance
-pnpm --filter @hyprgate/napp-relay-browser test
-pnpm --filter @hyprgate/napp-relay-browser build
+pnpm --filter ./napplets/relay-browser test
+pnpm --filter ./napplets/relay-browser type-check
+pnpm --filter ./napplets/relay-browser build
 ```
 
-The `conformance` script builds the napplet and runs `@napplet/conformance-cli` against `dist/`. CI runs the same conformance, unit test, and build checks for every push and pull request.
-
-CI runs from the standalone napplet repository but checks out `hyprgate/gui` to resolve private `workspace:*` packages. Configure `HYPRGATE_GUI_CHECKOUT_TOKEN` with read access to `hyprgate/gui` before enabling GitHub Actions.
+The relay monitor data is whatever the connected relays have cached, so the list
+reflects those monitors rather than every relay in existence.

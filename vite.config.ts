@@ -10,7 +10,7 @@ export default defineConfig({
     svelte(),
     nip5aManifest({
       nappletType: 'relay-browser',
-      requires: ['identity', 'relay', 'inc'],
+      requires: ['identity', 'relay', 'inc', 'intent', 'common', 'resource'],
       optional: ['theme'],
       icon: { data: readFileSync(new URL('./icon.png', import.meta.url)), mimeType: 'image/png' },
       artifactMode: 'single-file',

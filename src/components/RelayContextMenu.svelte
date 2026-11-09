@@ -83,7 +83,16 @@
     onaction(action, relay);
   }
 
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onclose();
+    }
+  }
+
   onMount(() => {
+    void tick().then(() => menuEl?.querySelector('button')?.focus());
+    document.addEventListener('keydown', handleKeydown);
     // Delay registration to avoid the opening click closing the menu
     setTimeout(() => {
       document.addEventListener('click', handleClickOutside);
@@ -93,6 +102,7 @@
 
   onDestroy(() => {
     document.removeEventListener('click', handleClickOutside);
+    document.removeEventListener('keydown', handleKeydown);
     window.removeEventListener('resize', handleResize);
   });
 
@@ -143,13 +153,14 @@
       class="w-full text-left px-3 py-1.5 text-text-primary hover:bg-bg-elevated transition-colors"
       onclick={() => handleAction('add-to-pool')}
     >
-      Add to pool
+      Use for discovery
     </button>
 
     <div>
       <button
         bind:this={submenuTriggerEl}
         class="w-full text-left px-3 py-1.5 text-text-primary hover:bg-bg-elevated transition-colors flex justify-between items-center"
+        aria-expanded={showRelayListSubmenu}
         onclick={() => showRelayListSubmenu = !showRelayListSubmenu}
       >
         Add to relay list
@@ -191,7 +202,7 @@
       class="w-full text-left px-3 py-1.5 text-text-primary hover:bg-bg-elevated transition-colors"
       onclick={() => handleAction('feed')}
     >
-      Feed
+      Open feed from this relay
     </button>
 
     <div class="border-t border-border-dim my-1"></div>
@@ -207,7 +218,7 @@
       class="w-full text-left px-3 py-1.5 text-text-primary hover:bg-bg-elevated transition-colors"
       onclick={() => handleAction('named-list')}
     >
-      Add to named list
+      Add to a relay set…
     </button>
   </div>
 {/if}
